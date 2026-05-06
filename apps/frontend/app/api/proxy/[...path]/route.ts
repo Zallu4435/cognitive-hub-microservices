@@ -88,12 +88,21 @@ async function handleProxy(req: NextRequest) {
 
     // ── Forward to upstream microservice ────────────────────────────────────
     try {
+        // AI chat requests need more time (embedding + LLM generation)
+        const isAIRoute = service === 'insights';
+        const timeoutMs = isAIRoute ? 60_000 : 30_000;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
         const response = await fetch(targetUrl, {
             method: req.method,
             headers,
             body,
             cache: "no-store",
+            signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         const responseText = await response.text();
         let parsedData: unknown = {};
@@ -139,7 +148,10 @@ async function handleProxy(req: NextRequest) {
         }
 
         return proxyResponse;
-    } catch {
+    } catch (err: any) {
+        if (err?.name === "AbortError") {
+            return NextResponse.json({ error: "Upstream service timed out" }, { status: 504 });
+        }
         return NextResponse.json({ error: "Upstream service proxy failed" }, { status: 502 });
     }
 }

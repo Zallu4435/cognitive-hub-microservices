@@ -6,9 +6,6 @@
 # ============================================================
 
 networks:
-  # Public-facing: frontend → gateway
-  frontend_net:
-    driver: bridge
   # Internal microservices: gateway → services
   backend_net:
     driver: bridge
@@ -62,8 +59,7 @@ services:
       - --node-id 0
       - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
       - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
-      # expose Prometheus-compatible metrics on 9644
-      - --prometheus-addr 0.0.0.0:9644
+      # expose Prometheus-compatible metrics on 9644 (default)
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -221,7 +217,7 @@ services:
       - obs_net
     healthcheck:
       # Python/FastAPI: use wget (available in python:slim) or a simple TCP check via bash
-      test: [ "CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" 2>/dev/null && echo ok || exit 1" ]
+      test: [ "CMD", "python3", "-c", "import urllib.request, sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/health').getcode() == 200 else sys.exit(1)" ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -259,7 +255,6 @@ services:
       ai-service:
         condition: service_healthy
     networks:
-      - frontend_net
       - backend_net
       - infra_net
       - obs_net
@@ -282,45 +277,6 @@ services:
     restart: unless-stopped
 
   # ─────────────────────────────────────────────
-  # FRONTEND
-  # ─────────────────────────────────────────────
-
-  frontend:
-    image: knowledgehub/frontend:latest
-    container_name: knowledgehub-frontend
-    ports:
-      - "4000:3000"
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      NEXT_PUBLIC_API_GATEWAY_URL: http://api-gateway:3000
-      NEXT_PUBLIC_AUTH_URL: http://auth-service:3001
-      NEXT_PUBLIC_GOAL_SERVICE_URL: http://goal-service:3002
-      NEXT_PUBLIC_AI_SERVICE_URL: http://ai-service:8000
-    depends_on:
-      api-gateway:
-        condition: service_healthy
-    networks:
-      - frontend_net
-    healthcheck:
-      test:
-        - "CMD"
-        - "node"
-        - "-e"
-        - "require('http').get({host:'localhost',port:3000,path:'/',timeout:2000},r=>{process.exit(r.statusCode<500?0:1)}).on('error',()=>process.exit(1))"
-      interval: 20s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.5"
-    logging: *default-logging
-    restart: unless-stopped
-
-  # ─────────────────────────────────────────────
   # OBSERVABILITY STACK (Phase 12)
   # ─────────────────────────────────────────────
 
@@ -328,7 +284,7 @@ services:
   # UI: http://localhost:16686
   # Accepts OTLP/HTTP on 4318, OTLP/gRPC on 4317
   jaeger:
-    image: jaegertracing/all-in-one:1.56
+    image: jaegertracing/all-in-one:1.50
     container_name: knowledgehub-jaeger
     ports:
       - "16686:16686" # Jaeger UI
@@ -359,7 +315,7 @@ services:
   # ── Prometheus — Metrics Store ────────────────
   # UI: http://localhost:9090
   prometheus:
-    image: prom/prometheus:v2.51.2
+    image: prom/prometheus:v2.45.0
     container_name: knowledgehub-prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -392,7 +348,7 @@ services:
   # ── Grafana — Metrics Dashboard ───────────────
   # UI: http://localhost:3030  (admin / admin)
   grafana:
-    image: grafana/grafana:10.4.2
+    image: grafana/grafana:10.0.3
     container_name: knowledgehub-grafana
     ports:
       - "3030:3000"

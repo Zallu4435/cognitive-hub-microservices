@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements first (Docker layer cache — only rebuilds on change)
 COPY apps/ai-service/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir setuptools && pip install --no-cache-dir -r requirements.txt
 
 # Copy source files
 # libs/event_schemas is imported as "from libs.event_schemas..."

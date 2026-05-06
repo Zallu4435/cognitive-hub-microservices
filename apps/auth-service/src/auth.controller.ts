@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Post, HttpCode, HttpStatus, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../../../libs/security/src/jwt-auth.guard';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 import { Response } from 'express';
 
 // ─────────────────────────────────────────────────────────────
@@ -33,7 +35,7 @@ export class AuthController {
     }
 
     @Post('register')
-    async register(@Body() body: Record<string, any>) {
+    async register(@Body() body: RegisterDto) {
         try {
             const result = await this.authService.register(body.email, body.password, body.role);
             authOperationCounter.labels('register', 'success').inc();
@@ -46,7 +48,7 @@ export class AuthController {
 
     @HttpCode(HttpStatus.OK)
     @Post('login')
-    async login(@Body() body: Record<string, any>) {
+    async login(@Body() body: LoginDto) {
         try {
             const result = await this.authService.login(body.email, body.password);
             authOperationCounter.labels('login', 'success').inc();

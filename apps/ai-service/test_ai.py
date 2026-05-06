@@ -1,5 +1,16 @@
-import asyncio
 import os
+import sys
+import asyncio
+from pathlib import Path
+
+# Fix for Protobuf issues on newer Python versions
+os.environ.setdefault('PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION', 'python')
+
+# Add project root to sys.path
+root_path = Path(__file__).resolve().parent.parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
 import time
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -13,9 +24,9 @@ if GEMINI_API_KEY:
 
 # ── Models to test (free-tier friendly) ──────────────────────────────────────
 MODELS_TO_TEST = [
-    "models/gemini-2.5-flash",
-    "models/gemini-2.0-flash",
+    "models/gemini-2.0-flash-lite",
     "models/gemini-flash-latest",
+    "models/gemini-2.5-flash-lite",
 ]
 
 PROMPT = PromptTemplate.from_template(

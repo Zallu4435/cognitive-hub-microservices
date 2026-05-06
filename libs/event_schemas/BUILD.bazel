@@ -59,6 +59,7 @@ ts_project(
     srcs = ["UserCreatedEvent.ts", "TaskCompletedEvent.ts"], # Takes the output from our genrule
     tsconfig = "tsconfig.json",
     declaration = True,
+    source_map = True,
     transpiler = "tsc",
 )
 

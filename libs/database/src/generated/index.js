@@ -164,6 +164,14 @@ const config = {
         "fromEnvVar": null,
         "value": "debian-openssl-3.0.x",
         "native": true
+      },
+      {
+        "fromEnvVar": null,
+        "value": "debian-openssl-1.1.x"
+      },
+      {
+        "fromEnvVar": null,
+        "value": "debian-openssl-3.0.x"
       }
     ],
     "previewFeatures": [],
@@ -190,8 +198,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"./src/generated\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel User {\n  id        String   @id @default(uuid())\n  email     String   @unique\n  password  String?\n  role      String   @default(\"user\")\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  // A User can have many goals\n  goals Goal[]\n\n  @@map(\"users\")\n}\n\nmodel Goal {\n  id          String   @id @default(uuid())\n  title       String\n  description String?\n  userId      String\n  user        User     @relation(fields: [userId], references: [id])\n  tasks       Task[]\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n\n  @@map(\"goals\")\n}\n\nmodel Task {\n  id        String   @id @default(uuid())\n  title     String\n  status    String   @default(\"TODO\") // Statuses: TODO, IN_PROGRESS, DONE\n  goalId    String\n  goal      Goal     @relation(fields: [goalId], references: [id])\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@map(\"tasks\")\n}\n",
-  "inlineSchemaHash": "5664acd33bb7110c62b4a930302e510cbf54d0eb648e512da14b655777aaa632",
+  "inlineSchema": "generator client {\n  provider      = \"prisma-client-js\"\n  output        = \"./src/generated\"\n  binaryTargets = [\"native\", \"debian-openssl-1.1.x\", \"debian-openssl-3.0.x\"]\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel User {\n  id        String   @id @default(uuid())\n  email     String   @unique\n  password  String?\n  role      String   @default(\"user\")\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  // A User can have many goals\n  goals Goal[]\n\n  @@map(\"users\")\n}\n\nmodel Goal {\n  id          String   @id @default(uuid())\n  title       String\n  description String?\n  userId      String\n  user        User     @relation(fields: [userId], references: [id])\n  tasks       Task[]\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n\n  @@map(\"goals\")\n}\n\nmodel Task {\n  id        String   @id @default(uuid())\n  title     String\n  status    String   @default(\"TODO\") // Statuses: TODO, IN_PROGRESS, DONE\n  goalId    String\n  goal      Goal     @relation(fields: [goalId], references: [id])\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@map(\"tasks\")\n}\n",
+  "inlineSchemaHash": "a6645dd3ca80c1404764c3e36f9f71bc6f28ba93c4c2c237775fa3474ff57adb",
   "copyEngine": true
 }
 
@@ -232,6 +240,10 @@ Object.assign(exports, Prisma)
 // file annotations for bundling tools to include these files
 path.join(__dirname, "libquery_engine-debian-openssl-3.0.x.so.node");
 path.join(process.cwd(), "libs/database/src/generated/libquery_engine-debian-openssl-3.0.x.so.node")
+
+// file annotations for bundling tools to include these files
+path.join(__dirname, "libquery_engine-debian-openssl-1.1.x.so.node");
+path.join(process.cwd(), "libs/database/src/generated/libquery_engine-debian-openssl-1.1.x.so.node")
 // file annotations for bundling tools to include these files
 path.join(__dirname, "schema.prisma");
 path.join(process.cwd(), "libs/database/src/generated/schema.prisma")

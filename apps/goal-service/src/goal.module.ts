@@ -1,15 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ClientsModule, Transport } from '@nestjs/microservices';
 import { JwtModule } from '@nestjs/jwt';
 import { LoggerModule } from 'nestjs-pino';
 import { GoalController, HealthController } from './goal.controller';
-import { PrismaService } from '../../../libs/database/src/prisma.service';
+import { GoalService } from './goal.service';
+import { DatabaseModule } from '../../../libs/database/src/database.module';
+import { KafkaModule } from '../../../libs/kafka/src/kafka.module';
 import { RedisService } from '../../../libs/security/src/redis.service';
-
-const isProd = process.env.NODE_ENV === 'production';
-const kafkaSaslUsername = process.env.KAFKA_SASL_USERNAME;
-const kafkaSaslPassword = process.env.KAFKA_SASL_PASSWORD;
 
 @Module({
     imports: [
@@ -27,24 +24,10 @@ const kafkaSaslPassword = process.env.KAFKA_SASL_PASSWORD;
 
         JwtModule.register({ global: true }),
 
-        ClientsModule.register([{
-            name: 'KAFKA_SERVICE',
-            transport: Transport.KAFKA,
-            options: {
-                client: {
-                    brokers: [(process.env.KAFKA_BROKER_URL || 'localhost:9092')],
-                    ssl: isProd && !!kafkaSaslUsername,
-                    sasl: kafkaSaslUsername ? {
-                        mechanism: 'scram-sha-256' as const,
-                        username: kafkaSaslUsername,
-                        password: kafkaSaslPassword || '',
-                    } : undefined,
-                },
-                producerOnlyMode: true,
-            },
-        }]),
+        DatabaseModule,
+        KafkaModule,
     ],
     controllers: [HealthController, GoalController],
-    providers: [PrismaService, RedisService],
+    providers: [GoalService, RedisService],
 })
 export class GoalModule { }

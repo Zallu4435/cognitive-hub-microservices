@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Inject, OnModuleInit, UseGuards, Req, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Inject, OnModuleInit, OnModuleDestroy, UseGuards, Req, Res } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
 import { UserCreatedEvent } from '../../../libs/event_schemas/UserCreatedEvent';
 import { PrismaService } from '../../../libs/database/src/prisma.service';
@@ -30,13 +30,20 @@ const httpRequestsTotal = new client.Counter({
 @Controller()
 export class AppController implements OnModuleInit {
   constructor(
-    @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
+    @Inject('KAFKA_CLIENT') private readonly kafkaClient: ClientKafka,
     private readonly prisma: PrismaService,
   ) { }
 
   async onModuleInit() {
     if (process.env.KAFKA_BROKER_URL) {
       await this.kafkaClient.connect();
+    }
+  }
+
+  async onModuleDestroy() {
+    if (process.env.KAFKA_BROKER_URL) {
+      await this.kafkaClient.close();
+      console.log('Kafka client closed gracefully');
     }
   }
 
@@ -64,23 +71,6 @@ export class AppController implements OnModuleInit {
         role: event.data.role,
       },
     });
-
-    if (process.env.KAFKA_BROKER_URL) {
-      this.kafkaClient.emit('user.events', event);
-      // Track the publish in Prometheus
-      kafkaPublishCounter.labels('user.events').inc();
-    }
-
-    // HTTP fallback: when Kafka is not configured (e.g. Render free tier),
-    // post directly to ai-service. Fire-and-forget — don't await.
-    const aiServiceUrl = process.env.AI_SERVICE_INTERNAL_URL || process.env.NEXT_PUBLIC_AI_SERVICE_URL;
-    if (!process.env.KAFKA_BROKER_URL && aiServiceUrl) {
-      fetch(`${aiServiceUrl}/events/user-created`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event),
-      }).catch((err) => console.error('[HTTP-fallback] user event failed:', err));
-    }
 
     httpRequestsTotal.labels('POST', '/users', '200').inc();
 

@@ -1,6 +1,6 @@
 export default function Loading() {
     return (
-        <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 w-full h-full min-h-[50vh]">
             <div className="relative flex items-center justify-center w-24 h-24 mb-8">
                 {/* Outer pulsing ring */}
                 <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>

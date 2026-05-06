@@ -2,34 +2,25 @@ import {
     Injectable,
     UnauthorizedException,
     ConflictException,
-    Inject,
-    OnModuleInit,
     Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ClientKafka } from '@nestjs/microservices';
+
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 import { PrismaService } from '../../../libs/database/src/prisma.service';
-import { UserCreatedEvent } from '../../../libs/event_schemas/UserCreatedEvent';
 import { RedisService } from '../../../libs/security/src/redis.service';
 
 @Injectable()
-export class AuthService implements OnModuleInit {
+export class AuthService {
     private readonly logger = new Logger(AuthService.name);
 
     constructor(
         private prisma: PrismaService,
         private jwtService: JwtService,
         private redisService: RedisService,
-        @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
     ) { }
 
-    async onModuleInit() {
-        if (process.env.KAFKA_BROKER_URL) {
-            await this.kafkaClient.connect();
-        }
-    }
+
 
     async register(email: string, pass: string, role: string = 'developer') {
         const existingUser = await this.prisma.user.findUnique({ where: { email } });
@@ -42,32 +33,6 @@ export class AuthService implements OnModuleInit {
             data: { email, password: hashedPassword, role },
         });
 
-        // Construct the strict event payload
-        const eventPayload: UserCreatedEvent = {
-            eventId: crypto.randomUUID(),
-            timestamp: new Date().toISOString(),
-            data: {
-                userId: user.id,
-                email: user.email,
-                role: user.role,
-            },
-        };
-
-        // Emit to Kafka (if configured)
-        if (process.env.KAFKA_BROKER_URL) {
-            this.kafkaClient.emit('user.events', eventPayload);
-            this.logger.log(`📢 Auth Service emitted UserCreatedEvent for: ${user.email}`);
-        }
-
-        // HTTP fallback: when Kafka is not configured
-        const aiServiceUrl = process.env.AI_SERVICE_INTERNAL_URL || process.env.NEXT_PUBLIC_AI_SERVICE_URL;
-        if (!process.env.KAFKA_BROKER_URL && aiServiceUrl) {
-            fetch(`${aiServiceUrl}/events/user-created`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(eventPayload),
-            }).catch((err) => this.logger.error('[HTTP-fallback] user event failed:', err));
-        }
 
         const payload = { sub: user.id, email: user.email, role: user.role };
         return {

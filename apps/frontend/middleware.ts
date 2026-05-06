@@ -8,7 +8,8 @@ export function middleware(request: NextRequest) {
     // The routes we want to protect
     const isProtectedRoute = request.nextUrl.pathname.startsWith('/insights') ||
         request.nextUrl.pathname.startsWith('/network') ||
-        request.nextUrl.pathname.startsWith('/dashboard');
+        request.nextUrl.pathname.startsWith('/dashboard') ||
+        request.nextUrl.pathname.startsWith('/chat');
 
     // If trying to access a protected route without a token, redirect to login
     if (isProtectedRoute && !token) {
@@ -26,5 +27,5 @@ export function middleware(request: NextRequest) {
 
 // Specify exactly which paths this middleware should run on
 export const config = {
-    matcher: ['/insights', '/network', '/login', '/register', '/dashboard'],
+    matcher: ['/insights', '/network', '/login', '/register', '/dashboard', '/chat'],
 };

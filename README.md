@@ -209,18 +209,24 @@ cp .env.prod.example .env
 | `JWT_SECRET` | Run: `openssl rand -base64 32` | ✅ |
 
 > **MongoDB one-time setup:** Create a Vector Search Index named `vector_index`
-> on collection `knowledge_hub.user_insights`, field `embedding`, 768 dimensions,
-> cosine similarity.
+> on collection `knowledge_hub.user_insights` with the following JSON:
+> ```json
+> {
+>   "fields": [
+>     { "type": "vector", "path": "embedding", "numDimensions": 768, "similarity": "cosine" },
+>     { "type": "filter", "path": "userId" }
+>   ]
+> }
+> ```
 
 ### 3. Option A — Full Docker Stack (Recommended)
 
 ```bash
-# Build all 5 Distroless images via Bazel (hermetic)
+# Build all 4 Distroless images via Bazel (hermetic)
 bazel run //apps/api-gateway:tarball
 bazel run //apps/auth-service:tarball
 bazel run //apps/goal-service:tarball
 bazel run //apps/ai-service:tarball
-bazel run //apps/frontend:tarball
 
 # Verify images are loaded
 docker images | grep knowledgehub
@@ -263,7 +269,9 @@ bazel run //apps/api-gateway:api-gateway    # Terminal 1
 bazel run //apps/auth-service:auth-service  # Terminal 2
 bazel run //apps/goal-service:goal-service  # Terminal 3
 bazel run //apps/ai-service:ai-service      # Terminal 4
-bazel run //apps/frontend:dev               # Terminal 5
+
+# Run frontend:
+cd apps/frontend && pnpm dev                # Terminal 5
 ```
 
 ---
@@ -350,7 +358,6 @@ git push main
 | `knowledgehub/auth-service` | distroless/nodejs20 | `bazel run //apps/auth-service:tarball` |
 | `knowledgehub/goal-service` | distroless/nodejs20 | `bazel run //apps/goal-service:tarball` |
 | `knowledgehub/ai-service` | distroless/python3 | `bazel run //apps/ai-service:tarball` |
-| `knowledgehub/frontend` | distroless/nodejs20 | `bazel run //apps/frontend:tarball` |
 
 ---
 

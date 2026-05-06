@@ -22,6 +22,11 @@ py_binary(
         requirement("PyJWT"),
         requirement("tenacity"),
         requirement("structlog"),
+        requirement("opentelemetry-api"),
+        requirement("opentelemetry-sdk"),
+        requirement("opentelemetry-exporter-otlp-proto-http"),
+        requirement("opentelemetry-instrumentation-fastapi"),
+        requirement("prometheus-fastapi-instrumentator"),
         "//libs/event_schemas:py_contracts",
     ],
     data = ["//:.env"],
@@ -53,7 +58,7 @@ oci_image(
     name = "image",
     base = "@distroless_python",
     tars = [":app_layer"],
-    entrypoint = ["python3", "apps/ai-service/main.py"],
+    entrypoint = ["python3", "/ai-service"],
 )
 
 # 3. Create the Tarball for Docker runtime

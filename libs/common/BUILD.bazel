@@ -1,0 +1,17 @@
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
+
+package(default_visibility = ["//visibility:public"])
+
+ts_project(
+    name = "common_lib",
+    srcs = glob(["src/**/*.ts"]),
+    tsconfig = "tsconfig.json",
+    declaration = True,
+    source_map = True,
+    transpiler = "tsc",
+    deps = [
+        "//:node_modules/@nestjs/common",
+        "//:node_modules/@types/express",
+        "//:node_modules/@types/node",
+    ],
+)

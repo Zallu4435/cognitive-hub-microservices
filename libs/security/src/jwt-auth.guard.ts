@@ -37,9 +37,13 @@ export class JwtAuthGuard implements CanActivate {
 
         let payload: any;
         try {
+            const jwtSecret = process.env.JWT_SECRET;
+            if (!jwtSecret) {
+                throw new Error('JWT_SECRET environment variable is not configured');
+            }
             // 1. Cryptographically verify the token
             payload = await this.jwtService.verifyAsync(token, {
-                secret: process.env.JWT_SECRET || 'super-secret-development-key',
+                secret: jwtSecret,
             });
         } catch {
             throw new UnauthorizedException('Invalid or expired token');

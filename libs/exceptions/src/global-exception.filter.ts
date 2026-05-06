@@ -30,16 +30,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
         let message = 'Internal server error';
 
+        let errorCode = 'ERR_INTERNAL_SERVER';
+
         if (exception instanceof HttpException) {
             statusCode = exception.getStatus();
             const res = exception.getResponse();
-            message =
-                typeof res === 'string'
-                    ? res
-                    : (res as any).message || exception.message;
+            
+            if (typeof res === 'object' && res !== null) {
+                message = (res as any).message || exception.message;
+                errorCode = (res as any).error || (res as any).errorCode || `ERR_${HttpStatus[statusCode]}` || 'ERR_HTTP_ERROR';
+            } else if (typeof res === 'string') {
+                message = res;
+                errorCode = `ERR_${HttpStatus[statusCode]}`;
+            }
+            
             // NestJS class-validator returns message as an array; flatten it
             if (Array.isArray(message)) {
                 message = message.join(', ');
+                errorCode = 'ERR_VALIDATION_FAILED';
             }
         } else if (exception instanceof Error) {
             message = exception.message;
@@ -48,6 +56,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         // Structured log for observability tools (Datadog, Grafana Loki, etc.)
         this.logger.error({
             statusCode,
+            errorCode,
             message,
             path: request.url,
             method: request.method,
@@ -56,6 +65,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
         response.status(statusCode).json({
             statusCode,
+            errorCode,
             message,
             timestamp: new Date().toISOString(),
             path: request.url,

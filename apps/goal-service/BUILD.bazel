@@ -6,9 +6,9 @@ package(default_visibility = ["//visibility:public"])
 
 ts_project(
     name = "compile",
-    srcs = glob(["src/**/*.ts"]),
+    srcs = glob(["src/**/*.ts"], exclude = ["src/**/*.spec.ts"]),
     declaration = True,
-    resolve_json_module = True,
+    source_map = True,
     transpiler = "tsc",
     tsconfig = "tsconfig.json",
     deps = [
@@ -20,8 +20,12 @@ ts_project(
         "//:node_modules/@types/express",
         "//libs/database:database_lib",
         "//libs/security:security_lib",
+        "//libs/common:common_lib",
+        "//libs/kafka:kafka_lib",
         "//:node_modules/@nestjs/config",
         "//:node_modules/nestjs-pino",
+        "//:node_modules/@nestjs/swagger",
+        "//:node_modules/swagger-ui-express",
         "//libs/exceptions:exceptions_lib",
         "//libs/telemetry:telemetry_lib",
         "//:node_modules/prom-client",
@@ -29,11 +33,9 @@ ts_project(
         "//:node_modules/@opentelemetry/exporter-trace-otlp-http",
         "//:node_modules/@opentelemetry/resources",
         "//:node_modules/@opentelemetry/semantic-conventions",
-        "//:node_modules/@opentelemetry/sdk-trace-base",
         "//:node_modules/@opentelemetry/instrumentation-http",
         "//:node_modules/@opentelemetry/instrumentation-express",
         "//:node_modules/@opentelemetry/instrumentation-nestjs-core",
-        "//:node_modules/opentelemetry-instrumentation-kafkajs",
     ],
 )
 
@@ -54,6 +56,8 @@ js_binary(
         "//:node_modules/pino",
         "//:node_modules/pino-http",
         "//:node_modules/pino-pretty",
+        "//:node_modules/@nestjs/swagger",
+        "//:node_modules/swagger-ui-express",
         "//libs/exceptions:exceptions_lib",
         "//libs/telemetry:telemetry_lib",
         "//:node_modules/prom-client",

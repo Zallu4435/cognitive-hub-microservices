@@ -5,20 +5,10 @@ import { useRouter } from "next/navigation";
 
 import CreateGoalWidget from "../../components/dashboard/CreateGoalWidget";
 import GoalCard from "../../components/dashboard/GoalCard";
+import { AlertIcon } from "../../components/icons/AlertIcon";
 import { apiClient } from "../../lib/api-client";
 
-// Define our TypeScript interfaces
-interface Task {
-    id: string;
-    title: string;
-    status: "TODO" | "IN_PROGRESS" | "DONE";
-}
-
-interface Goal {
-    id: string;
-    title: string;
-    tasks: Task[];
-}
+import { Goal } from "../../types/goal";
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -31,7 +21,8 @@ export default function DashboardPage() {
         const fetchGoals = async () => {
             try {
                 const res = await apiClient.get('/goals');
-                setGoals(res.data);
+                // The backend returns { items: [], meta: {} }, so we need to access .items
+                setGoals(Array.isArray(res.data.items) ? res.data.items : []);
             } catch (err: any) {
                 setError(err.message || "Failed to load dashboard data");
             } finally {
@@ -44,6 +35,9 @@ export default function DashboardPage() {
 
     // Complete a Task
     const handleCompleteTask = async (taskId: string, goalId: string) => {
+        // Save previous status for rollback on failure
+        const previousGoals = goals;
+
         try {
             // Optimistic UI Update: Mark it done immediately on the screen
             setGoals((prev) =>
@@ -61,8 +55,9 @@ export default function DashboardPage() {
             // Fire the actual request transparently through the secure interceptor
             await apiClient.patch(`/goals/tasks/${taskId}/complete`);
         } catch (err: any) {
-            console.error(err);
-            alert(err.message || "Failed to sync task completion. Please refresh.");
+            // Rollback the optimistic update on failure
+            setGoals(previousGoals);
+            setError(err.message || "Failed to sync task completion. Please try again.");
         }
     };
 
@@ -77,35 +72,38 @@ export default function DashboardPage() {
     };
 
     if (loading) return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <svg className="animate-spin h-10 w-10 text-primary mb-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p className="text-textMuted font-medium">Loading Workspace...</p>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
+            <div className="relative flex items-center justify-center w-20 h-20">
+                <div className="absolute inset-0 border-t-2 border-l-2 border-primary rounded-full animate-spin"></div>
+                <div className="absolute inset-2 border-b-2 border-r-2 border-accent rounded-full animate-pulse"></div>
+                <span className="font-mono text-xs text-primary font-bold">SYS</span>
+            </div>
+            <p className="mt-6 text-primary font-mono uppercase tracking-widest text-sm animate-pulse">Initializing Workspace...</p>
         </div>
     );
 
     return (
-        <div className="max-w-5xl mx-auto mt-8 px-4 pb-12">
-            <div className="mb-10">
-                <div className="inline-flex items-center justify-center px-4 py-1.5 mb-4 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold uppercase tracking-wider">
-                    Core Engine
-                </div>
-                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-3">
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-textMain to-zinc-500">
-                        My Workspace
+        <div className="w-full flex-1 flex flex-col pb-12 relative">
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-40 left-0 w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px] pointer-events-none" />
+
+            <div className="mb-12 relative z-10 animate-fade-in">
+                <div className="inline-flex items-center justify-center px-4 py-1.5 mb-4 rounded-full bg-surface/50 border border-primary/30 backdrop-blur-md shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+                    <span className="w-2 h-2 rounded-full bg-primary mr-3 shadow-[0_0_8px_rgba(99,102,241,0.8)] animate-pulse"></span>
+                    <span className="text-primary text-[10px] font-mono font-bold uppercase tracking-widest">
+                        Module :: Workspace
                     </span>
+                </div>
+                <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
+                    Command Center
                 </h1>
-                <p className="text-lg text-textMuted max-w-2xl">Manage your goals, complete tasks, and feed intelligence into your AI productivity coach.</p>
+                <p className="text-lg text-zinc-400 max-w-2xl font-light">Deploy goals, execute tasks, and feed intelligence into your AI cognitive engine.</p>
             </div>
 
             {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-8 flex items-start">
-                    <svg className="w-5 h-5 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{error}</span>
+                <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl mb-8 flex items-start backdrop-blur-md animate-slide-up">
+                    <AlertIcon className="w-5 h-5 mr-3 flex-shrink-0 mt-0.5" />
+                    <span className="font-mono text-sm tracking-wide">{error}</span>
                 </div>
             )}
 
@@ -113,22 +111,28 @@ export default function DashboardPage() {
             <CreateGoalWidget onGoalCreated={handleGoalCreated} />
 
             {/* --- GOALS LIST --- */}
-            <div className="mt-12">
-                <h2 className="text-2xl font-bold text-textMain mb-6 flex items-center">
-                    Active Goals
-                    <span className="ml-3 px-2.5 py-0.5 rounded-md bg-zinc-800 text-xs font-medium text-textMuted">
-                        {goals.length}
-                    </span>
-                </h2>
+            <div className="mt-16 relative z-10">
+                <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+                    <h2 className="text-2xl font-bold text-white flex items-center">
+                        Active Deployments
+                    </h2>
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest hidden sm:inline-block">Total Active:</span>
+                        <span className="px-3 py-1 rounded-lg bg-surface/50 border border-white/10 text-sm font-mono font-bold text-primary shadow-inner">
+                            {goals.length}
+                        </span>
+                    </div>
+                </div>
 
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+                <div className="grid gap-6 md:grid-cols-2">
                     {goals.length === 0 ? (
-                        <div className="col-span-full bg-surface/30 border border-zinc-800/50 border-dashed rounded-2xl flex flex-col items-center justify-center py-16 text-center">
-                            <div className="w-16 h-16 rounded-full bg-zinc-800/50 flex items-center justify-center mb-4">
+                        <div className="col-span-full bg-surface/20 backdrop-blur-xl border border-white/5 border-dashed rounded-2xl flex flex-col items-center justify-center py-20 text-center relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="w-16 h-16 rounded-2xl bg-surface border border-white/10 flex items-center justify-center mb-6 relative z-10 shadow-inner group-hover:scale-110 transition-transform duration-500">
                                 <span className="text-2xl">🎯</span>
                             </div>
-                            <h3 className="text-xl font-bold text-textMain mb-2">No active goals found</h3>
-                            <p className="text-textMuted max-w-sm">You haven't initialized any goals yet. Create your first goal above to start tracking your progress.</p>
+                            <h3 className="text-xl font-bold text-white mb-2 relative z-10">No active deployments</h3>
+                            <p className="text-zinc-500 max-w-sm font-light relative z-10">Initialize your first objective sequence above to commence operations.</p>
                         </div>
                     ) : (
                         goals.map(goal => (

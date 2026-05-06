@@ -34,10 +34,12 @@ export default function SignOutButton() {
         <Button
             onClick={handleSignOut}
             variant="danger"
-            size="md"
+            size="sm"
             disabled={isLoading}
         >
-            {isLoading ? "Signing out..." : "Sign Out"}
+            <span className="font-mono uppercase tracking-widest text-[10px]">
+                {isLoading ? "Terminating..." : "Terminate Session"}
+            </span>
         </Button>
     );
 }

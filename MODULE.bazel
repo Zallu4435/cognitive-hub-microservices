@@ -81,8 +81,8 @@ oci.pull(
 # Python Distroless Base
 oci.pull(
     name = "distroless_python",
-    digest = "sha256:72c0ee6f962df1ad412dc94d0cdf8a0e3197447235da79fa93b2f3e1ac4d2f4e", # Python 3.11
-    image = "gcr.io/distroless/python3-debian11",
+    image = "gcr.io/distroless/python3-debian12",
+    tag = "latest",
     platforms = ["linux/amd64", "linux/arm64"],
 )
 

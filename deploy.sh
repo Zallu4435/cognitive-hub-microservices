@@ -43,7 +43,7 @@ GITHUB_ORG="$GITHUB_ORG" docker compose \
 # Infrastructure (redpanda, redis) is only restarted if their
 # image or config has changed.
 log "🔄 Rolling restart of application services..."
-for service in auth-service goal-service ai-service api-gateway frontend; do
+for service in auth-service goal-service ai-service api-gateway; do
   log "   Restarting $service..."
   GITHUB_ORG="$GITHUB_ORG" docker compose \
     -f docker-compose.yml \
