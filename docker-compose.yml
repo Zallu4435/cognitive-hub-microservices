@@ -1,8 +1,5 @@
 # ============================================================
-# Knowledge Hub OS — Production Docker Compose
-# Built via: bazel run //apps/<service>:tarball
-# Standards: resource limits, health checks, network isolation,
-#            log rotation, graceful shutdown, node:20-slim base
+# Knowledge Hub OS — Docker Compose (Local Development)
 # ============================================================
 
 networks:
@@ -11,9 +8,6 @@ networks:
     driver: bridge
   # Infrastructure only: services → kafka/redis
   infra_net:
-    driver: bridge
-  # Observability: Prometheus, Grafana, Jaeger — can reach all services
-  obs_net:
     driver: bridge
 
 # ─────────────────────────────────────────────
@@ -24,21 +18,6 @@ x-logging: &default-logging
   options:
     max-size: "10m"
     max-file: "3"
-
-# ─────────────────────────────────────────────
-# NODE.JS HEALTH CHECK (no curl in slim images)
-# Uses Node.js built-in http module — zero extra tools needed
-# ─────────────────────────────────────────────
-x-node-healthcheck: &node-healthcheck
-  test:
-    - "CMD"
-    - "node"
-    - "-e"
-    - "require('http').get({host:'localhost',port:process.env.PORT||3000,path:'/health',timeout:2000},r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
-  interval: 15s
-  timeout: 5s
-  retries: 5
-  start_period: 30s
 
 services:
 
@@ -59,14 +38,11 @@ services:
       - --node-id 0
       - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
       - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
-      # expose Prometheus-compatible metrics on 9644 (default)
     ports:
       - "9092:9092"
       - "29092:29092"
-      - "9644:9644" # Prometheus metrics
     networks:
       - infra_net
-      - obs_net
     healthcheck:
       test: [ "CMD", "rpk", "cluster", "info", "--brokers=localhost:9092" ]
       interval: 10s
@@ -120,10 +96,6 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       KAFKA_BROKER_URL: redpanda:29092
       REDIS_URL: redis://redis:6379
-      # ── Observability ──────────────────────────
-      OTEL_SERVICE_NAME: auth-service
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-      OTEL_TRACES_EXPORTER: otlp
     depends_on:
       redpanda:
         condition: service_healthy
@@ -132,7 +104,6 @@ services:
     networks:
       - backend_net
       - infra_net
-      - obs_net
     healthcheck:
       test:
         - "CMD"
@@ -163,10 +134,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       KAFKA_BROKER_URL: redpanda:29092
       REDIS_URL: redis://redis:6379
-      # ── Observability ──────────────────────────
-      OTEL_SERVICE_NAME: goal-service
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-      OTEL_TRACES_EXPORTER: otlp
     depends_on:
       redpanda:
         condition: service_healthy
@@ -175,7 +142,6 @@ services:
     networks:
       - backend_net
       - infra_net
-      - obs_net
     healthcheck:
       test:
         - "CMD"
@@ -204,19 +170,13 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       JWT_SECRET: ${JWT_SECRET}
       KAFKA_BROKER_URL: redpanda:29092
-      # ── Observability ──────────────────────────
-      OTEL_SERVICE_NAME: ai-service
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-      OTEL_TRACES_EXPORTER: otlp
     depends_on:
       redpanda:
         condition: service_healthy
     networks:
       - backend_net
       - infra_net
-      - obs_net
     healthcheck:
-      # Python/FastAPI: use wget (available in python:slim) or a simple TCP check via bash
       test: [ "CMD", "python3", "-c", "import urllib.request, sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/health').getcode() == 200 else sys.exit(1)" ]
       interval: 15s
       timeout: 5s
@@ -243,10 +203,6 @@ services:
       KAFKA_BROKER_URL: redpanda:29092
       REDIS_URL: redis://redis:6379
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
-      # ── Observability ──────────────────────────
-      OTEL_SERVICE_NAME: api-gateway
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-      OTEL_TRACES_EXPORTER: otlp
     depends_on:
       auth-service:
         condition: service_healthy
@@ -257,7 +213,6 @@ services:
     networks:
       - backend_net
       - infra_net
-      - obs_net
     healthcheck:
       test:
         - "CMD"
@@ -275,143 +230,3 @@ services:
           cpus: "0.5"
     logging: *default-logging
     restart: unless-stopped
-
-  # ─────────────────────────────────────────────
-  # OBSERVABILITY STACK (Phase 12)
-  # ─────────────────────────────────────────────
-
-  # ── Jaeger — Distributed Tracing ─────────────
-  # UI: http://localhost:16686
-  # Accepts OTLP/HTTP on 4318, OTLP/gRPC on 4317
-  jaeger:
-    image: jaegertracing/all-in-one:1.50
-    container_name: knowledgehub-jaeger
-    ports:
-      - "16686:16686" # Jaeger UI
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-      - "14269:14269" # Jaeger admin / health
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
-      # Keep traces for 72 hours in memory (switch to elasticsearch for prod)
-      SPAN_STORAGE_TYPE: memory
-      MEMORY_MAX_TRACES: "50000"
-    networks:
-      - obs_net
-    healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:14269/ready || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.5"
-    logging: *default-logging
-    restart: unless-stopped
-
-  # ── Prometheus — Metrics Store ────────────────
-  # UI: http://localhost:9090
-  prometheus:
-    image: prom/prometheus:v2.45.0
-    container_name: knowledgehub-prometheus
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=15d
-      - --web.enable-lifecycle # POST /-/reload to hot-reload config
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    networks:
-      - obs_net
-    depends_on:
-      - jaeger
-    healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1" ]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.5"
-    logging: *default-logging
-    restart: unless-stopped
-
-  # ── Grafana — Metrics Dashboard ───────────────
-  # UI: http://localhost:3030  (admin / admin)
-  grafana:
-    image: grafana/grafana:10.0.3
-    container_name: knowledgehub-grafana
-    ports:
-      - "3030:3000"
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
-      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ""
-    volumes:
-      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./infra/grafana/dashboards:/etc/grafana/dashboards:ro
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      prometheus:
-        condition: service_healthy
-      jaeger:
-        condition: service_healthy
-    networks:
-      - obs_net
-    healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1" ]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.5"
-    logging: *default-logging
-    restart: unless-stopped
-
-  # ── Redis Exporter — Redis → Prometheus bridge ─
-  # No UI; Prometheus scrapes it on port 9121
-  redis-exporter:
-    image: oliver006/redis_exporter:v1.58.0
-    container_name: knowledgehub-redis-exporter
-    environment:
-      REDIS_ADDR: redis://redis:6379
-    ports:
-      - "9121:9121"
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - infra_net
-      - obs_net
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-          cpus: "0.1"
-    logging: *default-logging
-    restart: unless-stopped
-
-# ─────────────────────────────────────────────
-# NAMED VOLUMES (persist Prometheus & Grafana data)
-# ─────────────────────────────────────────────
-volumes:
-  prometheus_data:
-    driver: local
-  grafana_data:
-    driver: local

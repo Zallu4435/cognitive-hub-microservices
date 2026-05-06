@@ -4,13 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from langchain_core.prompts import PromptTemplate
-from opentelemetry import trace
 from core.security import verify_token
 from services.db import insights_collection
 from services.llm_service import make_llm, embeddings, invoke_with_retry
 
 log = structlog.get_logger()
-tracer = trace.get_tracer(__name__)
 router = APIRouter(prefix="/insights", tags=["chat"])
 
 # =============================================================================
@@ -60,52 +58,50 @@ CHAT_PROMPT = PromptTemplate.from_template(
 
 async def get_rag_context(user_id: str, message: str):
     """Retrieve relevant insights from MongoDB using vector search."""
-    with tracer.start_as_current_span("rag_retrieval") as span:
-        context = "No past productivity data found."
-        sources = []
-        try:
-            # 1. Generate embedding
-            query_vector = await asyncio.wait_for(
-                embeddings.aembed_query(message),
-                timeout=15.0,
-            )
+    context = "No past productivity data found."
+    sources = []
+    try:
+        # 1. Generate embedding
+        query_vector = await asyncio.wait_for(
+            embeddings.aembed_query(message),
+            timeout=15.0,
+        )
 
-            # 2. Vector Search
-            pipeline = [
-                {
-                    "$vectorSearch": {
-                        "index": "vector_index",
-                        "path": "embedding",
-                        "queryVector": query_vector,
-                        "numCandidates": 50,
-                        "limit": 5,
-                        "filter": {"userId": {"$eq": user_id}},
-                    }
-                },
-                {"$project": {"ai_summary": 1, "score": {"$meta": "vectorSearchScore"}}},
-            ]
+        # 2. Vector Search
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": "vector_index",
+                    "path": "embedding",
+                    "queryVector": query_vector,
+                    "numCandidates": 50,
+                    "limit": 5,
+                    "filter": {"userId": {"$eq": user_id}},
+                }
+            },
+            {"$project": {"ai_summary": 1, "score": {"$meta": "vectorSearchScore"}}},
+        ]
+        
+        results = await insights_collection.aggregate(pipeline).to_list(length=5)
+        
+        if results:
+            context_parts = []
+            for doc in results:
+                summary = doc.get("ai_summary", "")
+                score = doc.get("score", 0)
+                # Only include high-confidence matches (simple heuristic)
+                if score > 0.6:
+                    context_parts.append(f"- {summary}")
+                    sources.append({"id": str(doc["_id"]), "summary": summary})
             
-            results = await insights_collection.aggregate(pipeline).to_list(length=5)
-            
-            if results:
-                context_parts = []
-                for doc in results:
-                    summary = doc.get("ai_summary", "")
-                    score = doc.get("score", 0)
-                    # Only include high-confidence matches (simple heuristic)
-                    if score > 0.6:
-                        context_parts.append(f"- {summary}")
-                        sources.append({"id": str(doc["_id"]), "summary": summary})
-                
-                if context_parts:
-                    context = "\n".join(context_parts)
-            
-            span.set_attribute("rag.sources_count", len(sources))
-            return context, sources
-            
-        except Exception as e:
-            log.warning("rag_failed", error=str(e), fallback="plain_chat")
-            return context, []
+            if context_parts:
+                context = "\n".join(context_parts)
+        
+        return context, sources
+        
+    except Exception as e:
+        log.warning("rag_failed", error=str(e), fallback="plain_chat")
+        return context, []
 
 # =============================================================================
 # Routes
@@ -126,21 +122,20 @@ async def chat_with_ai(request: ChatRequest, user_id: str = Depends(verify_token
             media_type="text/event-stream"
         )
 
-    with tracer.start_as_current_span("llm_generation") as span:
-        try:
-            ai_reply = await asyncio.wait_for(
-                invoke_with_retry(chain, {"history": context, "question": request.message}),
-                timeout=25.0,
-            )
-            return {
-                "reply": ai_reply.content,
-                "sources": sources
-            }
-        except asyncio.TimeoutError:
-            log.warning("llm_timeout", user_id=user_id)
-            return {"reply": "⏳ The AI is taking a bit longer than usual. Please try again in a moment."}
-        except Exception as e:
-            return handle_llm_error(e, user_id)
+    try:
+        ai_reply = await asyncio.wait_for(
+            invoke_with_retry(chain, {"history": context, "question": request.message}),
+            timeout=25.0,
+        )
+        return {
+            "reply": ai_reply.content,
+            "sources": sources
+        }
+    except asyncio.TimeoutError:
+        log.warning("llm_timeout", user_id=user_id)
+        return {"reply": "⏳ The AI is taking a bit longer than usual. Please try again in a moment."}
+    except Exception as e:
+        return handle_llm_error(e, user_id)
 
 async def generate_chat_stream(chain, context, question, user_id):
     """Generator for SSE streaming."""

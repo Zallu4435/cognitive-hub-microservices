@@ -2,19 +2,6 @@ import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nest
 import { ClientKafka } from '@nestjs/microservices';
 import { PrismaService } from '../../../libs/database/src/prisma.service';
 import * as crypto from 'crypto';
-import * as client from 'prom-client';
-
-const tasksCompletedCounter = new client.Counter({
-    name: 'goal_service_tasks_completed_total',
-    help: 'Total number of tasks marked as complete',
-    labelNames: ['status'],
-});
-
-const kafkaPublishCounter = new client.Counter({
-    name: 'goal_service_kafka_events_published_total',
-    help: 'Total Kafka events published by goal-service',
-    labelNames: ['topic'],
-});
 
 @Injectable()
 export class GoalService {
@@ -38,7 +25,7 @@ export class GoalService {
             }),
             this.prisma.goal.count({ where: { userId } })
         ]);
-        
+
         return {
             items,
             meta: {
@@ -96,7 +83,6 @@ export class GoalService {
         if (process.env.KAFKA_BROKER_URL) {
             console.log(`[GoalService] Emitting task.completed event for task: ${task.title}`);
             this.kafkaClient.emit('task.completed', eventPayload);
-            kafkaPublishCounter.labels('task.completed').inc();
         }
 
         const aiServiceUrl = process.env.AI_SERVICE_INTERNAL_URL || process.env.NEXT_PUBLIC_AI_SERVICE_URL;
@@ -107,8 +93,6 @@ export class GoalService {
                 body: JSON.stringify(eventPayload),
             }).catch((err) => console.error('[HTTP-fallback] task event failed:', err));
         }
-
-        tasksCompletedCounter.labels('DONE').inc();
 
         return task;
     }

@@ -10,13 +10,7 @@ langchain-google-genai
 datamodel-code-generator
 tomli
 PyJWT
-# Phase 3.1: Exponential backoff / retry for LLM calls (handles 429 rate limits)
+# Exponential backoff / retry for LLM calls (handles 429 rate limits)
 tenacity
-# Phase 4.3: Structured JSON logging
+# Structured JSON logging
 structlog
-# Phase 12: Observability — Prometheus metrics endpoint
-prometheus-fastapi-instrumentator
-# Phase 12: Observability — OpenTelemetry distributed tracing → Jaeger
-opentelemetry-sdk
-opentelemetry-exporter-otlp-proto-http
-opentelemetry-instrumentation-fastapi

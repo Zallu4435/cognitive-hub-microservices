@@ -6,13 +6,6 @@ import { Logger } from 'nestjs-pino';
 import { json, urlencoded } from 'express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
-// ─────────────────────────────────────────────────────────────
-// Phase 12 — OpenTelemetry Tracing (must be imported FIRST,
-// before any other NestJS modules load, so all auto-instrumentations
-// are registered before they patch http/kafka/etc.)
-// ─────────────────────────────────────────────────────────────
-import '../../../libs/telemetry/src/tracer';
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 

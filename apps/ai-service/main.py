@@ -17,15 +17,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
 
-# Tracing
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.sdk.resources import Resource
-from prometheus_fastapi_instrumentator import Instrumentator as PrometheusInstrumentator
-
 # Config
 from config import KAFKA_BROKER_URL, ALLOWED_ORIGINS
 
@@ -55,23 +46,6 @@ structlog.configure(
     logger_factory=structlog.stdlib.LoggerFactory(),
 )
 log = structlog.get_logger(service_name="ai-service")
-
-# =============================================================================
-# OpenTelemetry
-# =============================================================================
-_otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
-_service_name = os.getenv("OTEL_SERVICE_NAME", "ai-service")
-_otel_exporter_type = os.getenv("OTEL_TRACES_EXPORTER", "otlp")
-
-_otel_resource = Resource(attributes={"service.name": _service_name})
-_tracer_provider = TracerProvider(resource=_otel_resource)
-
-if _otel_exporter_type.lower() != "none":
-    _otlp_exporter = OTLPSpanExporter(endpoint=f"{_otel_endpoint}/v1/traces")
-    _tracer_provider.add_span_processor(BatchSpanProcessor(_otlp_exporter))
-
-trace.set_tracer_provider(_tracer_provider)
-tracer = trace.get_tracer(__name__)
 
 # =============================================================================
 # FastAPI Lifespan & App
@@ -116,10 +90,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Instrumentations
-FastAPIInstrumentor.instrument_app(app, tracer_provider=_tracer_provider)
-PrometheusInstrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # Routers
 app.include_router(events_router)

@@ -1,15 +1,7 @@
-import { Controller, Get, Post, Patch, Body, Param, Req, Res, UseGuards, Inject, OnModuleInit, OnModuleDestroy, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Req, UseGuards, Inject, OnModuleInit, OnModuleDestroy, Query } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
 import { JwtAuthGuard } from '../../../libs/security/src/jwt-auth.guard';
-import { Response } from 'express';
 import { GoalService } from './goal.service';
-
-// ─────────────────────────────────────────────────────────────
-// Phase 12 — Prometheus metrics
-// ─────────────────────────────────────────────────────────────
-import * as client from 'prom-client';
-
-client.collectDefaultMetrics({ prefix: 'goal_service_' });
 
 // Public health endpoint (no auth guard)
 @Controller()
@@ -17,13 +9,6 @@ export class HealthController {
     @Get('health')
     health() {
         return { status: 'ok', service: 'goal-service', timestamp: new Date().toISOString() };
-    }
-
-    // ── Phase 12: Prometheus metrics scrape endpoint ──────────
-    @Get('metrics')
-    async metrics(@Res() res: Response) {
-        res.set('Content-Type', client.register.contentType);
-        res.end(await client.register.metrics());
     }
 }
 
@@ -70,4 +55,3 @@ export class GoalController implements OnModuleInit {
         return this.goalService.completeTask(req.user.sub, taskId);
     }
 }
-

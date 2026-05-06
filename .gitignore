@@ -46,3 +46,5 @@ env/
 # Bazel cache
 .bazel_cache/
 /.antigravity/
+.agents/
+.bazelversion

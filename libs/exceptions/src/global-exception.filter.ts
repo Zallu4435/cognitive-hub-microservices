@@ -53,7 +53,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             message = exception.message;
         }
 
-        // Structured log for observability tools (Datadog, Grafana Loki, etc.)
+        // Structured log for debugging and auditing
         this.logger.error({
             statusCode,
             errorCode,
