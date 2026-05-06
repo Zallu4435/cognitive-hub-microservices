@@ -4,7 +4,8 @@
 FROM node:20-slim AS builder
 WORKDIR /workspace
 
-RUN npm install -g pnpm@8
+RUN apt-get update -y && apt-get install -y openssl && \
+    npm install -g pnpm@8
 
 # Install deps from lockfile (cached layer)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -35,6 +36,7 @@ RUN mkdir -p dist/libs/database/src/generated && \
 
 # ── Runtime ────────────────────────────────────────────────
 FROM node:20-slim
+RUN apt-get update -y && apt-get install -y openssl
 WORKDIR /app
 
 COPY --from=builder /workspace/node_modules ./node_modules
